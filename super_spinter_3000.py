@@ -1,83 +1,62 @@
-# all the imports
-import os
+from initdatabase import InitDatabase
 from peewee import *
-from flaskr.connectdatabase import ConnectDatabase
-from flaskr.models import Entries
+from models import *
 from flask import Flask, request, session, g, redirect, url_for, abort, \
     render_template, flash, current_app
 
+app = Flask(__name__)
 
-app = Flask(__name__)  # create the application instance :)
-app.config.from_object(__name__)  # load config from this file , flaskr.py
-
-# Load default config and override config from an environment variable
-app.config.update(dict(
-    DATABASE=os.path.join(app.root_path, 'flaskr.db'),
-    SECRET_KEY='development key',
-    USERNAME='admin',
-    PASSWORD='default'
-))
-app.config.from_envvar('FLASKR_SETTINGS', silent=True)
+@app.route('/', methods=['GET'])
+@app.route('/list', methods=['GET'])
+def list_stories():
+    stories = UserStory.select()
+    return render_template('list.html', user_stories=stories)
 
 
-def init_db():
-    ConnectDatabase.db.connect()
-    ConnectDatabase.db.create_tables([Entries], safe=True)
+@app.route('/story/', methods=['POST'])
+def add_new_story():
+    user_story = UserStory.create(story_title=request.form['story_title'],
+                            user_story=request.form['user_story'],
+                            acceptance_criteria=request.form['acceptance_criteria'],
+                            business_value = request.form['business_value'],
+                            estimation=request.form['estimation'],
+                            status=request.form['status'])
+
+    return redirect(url_for('list_stories'))
 
 
-@app.cli.command('initdb')
-def initdb_command():
-    """Initializes the database."""
-    init_db()
-    print('Initialized the database.')
+@app.route('/story/<story_id>', methods=['POST'])
+def update_story(story_id):
+    update = UserStory.update(story_title=request.form["story_title"],
+                                user_story=request.form["user_story"],
+                                acceptance_criteria=request.form["acceptance_criteria"],
+                                business_value=request.form["business_value"],
+                                estimation=request.form["estimation"],
+                                status=request.form["status"]).where(UserStory.id == story_id)
+    update.execute()
+    return redirect(url_for('list_stories'))
 
 
-@app.teardown_appcontext
-def close_db(error):
-    """Closes the database again at the end of the request."""
-    if hasattr(g, 'postgre_db'):
-        g.postgre_db.close()
+@app.route('/delete/<story_id>', methods=['POST'])
+def delete_story(story_id):
+    story = UserStory.select().where(UserStory.id == story_id).get()
+    story.delete_instance()
+    story.save()
+    return redirect(url_for('list_stories'))
 
 
-@app.route('/')
-def show_entries():
-    entries = Entries.select().order_by(Entries.id.desc())
-    return render_template('show_entries.html', entries=entries)
+@app.route('/form', methods=["GET"])
+def render_add_new():
+    story = []
+    return render_template('form.html', u_story = story, header = "Add new", button="Create")
 
 
-@app.route('/add', methods=['POST'])
-def add_entry():
-    if not session.get('logged_in'):
-        abort(401)
-    new_entry = Entries.create(title=request.form['title'],
-                               text=request.form['text'])
-    new_entry.save()
-    flash('New entry was successfully posted')
-    return redirect(url_for('show_entries'))
+@app.route("/story/<story_id>", methods=["GET"])
+def render_edit(story_id):
+    story = UserStory.get(UserStory.id == story_id)
+    return render_template('form.html', u_story = story, header = "Edit", button="Update")
 
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    print(app.config['USERNAME'])
-    print(app.config['PASSWORD'])
-    error = None
-    if request.method == 'POST':
-        if request.form['username'] != app.config['USERNAME']:
-            error = 'Invalid username'
-        elif request.form['password'] != app.config['PASSWORD']:
-            error = 'Invalid password'
-        else:
-            session['logged_in'] = True
-            flash('You were logged in')
-            return redirect(url_for('show_entries'))
-    return render_template('login.html', error=error)
-
-
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    flash('You were logged out')
-    return redirect(url_for('show_entries'))
-
-if __name__ = "__main__":
-    app.run()
+if __name__ == '__main__':
+    InitDatabase.init_db()
+    app.run(debug=True)
