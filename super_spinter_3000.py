@@ -1,62 +1,75 @@
-from initdatabase import InitDatabase
-from peewee import *
 from models import *
-from flask import Flask, request, session, g, redirect, url_for, abort, \
-    render_template, flash, current_app
+from flask import Flask, request, g, redirect, url_for, \
+    render_template, flash
 
 app = Flask(__name__)
-
-@app.route('/', methods=['GET'])
-@app.route('/list', methods=['GET'])
-def list_stories():
-    stories = UserStory.select()
-    return render_template('list.html', user_stories=stories)
+app.config.from_object(__name__)
 
 
-@app.route('/story/', methods=['POST'])
-def add_new_story():
-    user_story = UserStory.create(story_title=request.form['story_title'],
-                            user_story=request.form['user_story'],
-                            acceptance_criteria=request.form['acceptance_criteria'],
-                            business_value = request.form['business_value'],
-                            estimation=request.form['estimation'],
-                            status=request.form['status'])
+def init_db():
+    db = CreateDatabase.create_db_object()
+    db.connect()
+    db.create_tables([Entries], safe=True)
 
-    return redirect(url_for('list_stories'))
+
+@app.teardown_appcontext
+def close_db(error):
+    if hasattr(g, 'postgre_db'):
+        g.postgre_db.close()
+
+
+@app.route('/')
+def show_entries():
+    entries_query = Entries.select().order_by(Entries.id)
+    return render_template('list.html', user_entries=entries_query)
+
+
+@app.route('/story')
+def empty_user_story():
+    return render_template('form.html', story=None)
+
+
+@app.route('/add_user_story', methods=['POST'])
+def add_user_story():
+    new_user_story = Entries.create(story_title=request.form["story-title"],
+                                    user_story=request.form["user-story"],
+                                    acceptance_criteria=request.form["acceptance-criteria"],
+                                    business_value=request.form["business-value"],
+                                    estimation=request.form["estimation"],
+                                    status=request.form["status"])
+    new_user_story.save()
+    return redirect('/')
+
+@app.route('/delete', methods=['POST'])
+def delete_user_story():
+    story_id = request.form["id_for_delete"]
+    selected_story = Entries.get(Entries.id == story_id)
+    selected_story.delete_instance()
+    return redirect('/')
+
 
 
 @app.route('/story/<story_id>', methods=['POST'])
-def update_story(story_id):
-    update = UserStory.update(story_title=request.form["story_title"],
-                                user_story=request.form["user_story"],
-                                acceptance_criteria=request.form["acceptance_criteria"],
-                                business_value=request.form["business_value"],
-                                estimation=request.form["estimation"],
-                                status=request.form["status"]).where(UserStory.id == story_id)
-    update.execute()
-    return redirect(url_for('list_stories'))
+def get_user_story(story_id):
+    story_id = request.form["id_for_update"]
+    selected_story = Entries.get(Entries.id == story_id)
+    return render_template('form.html', story=selected_story)
 
 
-@app.route('/delete/<story_id>', methods=['POST'])
-def delete_story(story_id):
-    story = UserStory.select().where(UserStory.id == story_id).get()
-    story.delete_instance()
-    story.save()
-    return redirect(url_for('list_stories'))
+@app.route('/update', methods=['POST'])
+def update_user_story():
+    story_for_update = Entries.update(title=request.form["story-title"],
+                                        story=request.form["user-story"],
+                                        criteria=request.form["acceptance-criteria"],
+                                        value=request.form["business-value"],
+                                        estimation=request.form["estimation"],
+                                        status=request.form["status"]).where(Entries.id == request.form["id"])
+    story_for_update.execute()
+    return redirect('/')
 
 
-@app.route('/form', methods=["GET"])
-def render_add_new():
-    story = []
-    return render_template('form.html', u_story = story, header = "Add new", button="Create")
 
 
-@app.route("/story/<story_id>", methods=["GET"])
-def render_edit(story_id):
-    story = UserStory.get(UserStory.id == story_id)
-    return render_template('form.html', u_story = story, header = "Edit", button="Update")
-
-
-if __name__ == '__main__':
-    InitDatabase.init_db()
-    app.run(debug=True)
+if __name__ == "__main__":
+    init_db()
+    app.run()
