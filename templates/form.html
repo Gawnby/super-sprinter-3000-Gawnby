@@ -1,43 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head> 
-    <meta charset="UTF-8">
-    <title>Form</title>
-    <title> Super Sprinter 3000 -{% if story is not none %} Edit Story{% else %} Add new Story{%endif %}</title>
+<!doctype html>
+<head>
+    <title>Super Sprinter 3000 {{ header }}</title>
 </head>
+
 <body>
-<strong>
-    {% if add_user_story %}
-        <title>Super Sprinter 3000 - Add new Story</title>
-    {% else %}
-        <title>Super Sprinter 3000 - Edit Story</title>
-    {% endif %}
-</strong></h1>
-</body>
-<form action="{{ url_for('add_user_story') }}" method="post">
-    <label for="story-title">Story title</label>
-    <textarea name="story-title" rows="1" cols="50">{% if story is not none %}{{ story.story_title }}{% else %}{%endif %}</textarea><br/><br/>
-    <label for="user-story">User Story</label>
-    <textarea name="user-story" rows="5" cols="50">{% if story is not none %}{{ story.user_story }}{% else %}{%endif %}</textarea><br/><br/>
-    <label for="acceptance-criteria">Acceptance criteria</label>
-    <textarea name="acceptance-criteria" rows="5" cols="100">{% if story is not none %}{{ story.acceptance_criteria }}{% else %}{%endif %}</textarea><br/><br/>
-    <label for="business-value">Business Value</label>
-    <input type="number" name="business-value" min="100" max="1500" step="100" value={% if story is not none %}{{ story.business_value }}{% else %}{%endif %}><br/><br/>
-    <label for="estimation">Estimation</label>
-    <input type="number" name="estimation" name="quantity" min="0.5" max="40" step="0.5" value={% if story is not none %}{{ story.estimation }}{% else %}{%endif %}><br/><br/>
+    <form action="/story/{{user_story.id}}" method="POST">
 
-    <label for="status">Status</label>
-    <select name="status">
-        <option value="planning" {% if story.status=="planning" %}selected="selected"{% endif %}>Planning</option>
-        <option value="to do" {% if story.status=="to do" %}selected="selected"{% endif %}>To Do</option>
-        <option value="in progress" {% if story.status=="in progress" %}selected="selected"{% endif %}>In Progress</option>
-        <option value="review" {% if story.status=="review" %}selected="selected"{% endif %}>Review</option>
-        <option value="done" {% if story.status=="done" %}selected="selected"{% endif %}>Done</option>
-    </select>
-  <br/><br/>
-    <input type="submit" {% if story is not none %}id=Update value=Update{% else %}id=Create value=Create{% endif %}>
+        <h1>User Story Manager - {{ header }}</h1>
 
-</form>
+        <label for="story_title">Story Title</label><br>
+        <input class="story_title" type="text" name="story_title" id="story_title" value="{{ user_story.title }}" required><br><br>
+
+        <label for="user_story">User Story</label><br>
+        <textarea class="text_area" name="user_story" id="user_story" required>{{ user_story.story }}</textarea><br><br>
+
+        <p>Acceptance Criteria</p>
+        <textarea class="text_area" name="acceptance_criteria" required>{{ user_story.criteria }}</textarea><br><br>
+
+        <label for="business_value">Business value</label><br>
+        <input class="number_input" type="number" name="business_value" id="business_value" min="100" max="1500" step="100" placeholder="100" value="{{ user_story.business_value }}" required><br><br>
+
+        <label for="estimation">Estimation (h)</label><br>
+
+        <input class="number_input" type="number" name="estimation" id="estimation" min="0.5" max="40" step="0.5" placeholder="0.5" value="{{ user_story.estimation }}" required><br><br>
+        <label>Status</label><br>
+            {% if show_only == True %}
+                <select name="status" id="status">
+                {% for status in status_options %}
+                    <option selected name="status">{{ status.status_options }}</option>
+                {% endfor %}
+            </select>
+            {% else %}
+                <select name="status" id="status">
+                    {% for status in status_options %}
+                        <option name="status" {% if chosen_status == status.status_options %} selected {% endif %}>
+                            {{ status.status_options }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+        <p><input type="submit" id="submit_button" value="{{ submit_button }}"></p>
+    </form>
 </body>
 </html>

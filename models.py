@@ -1,27 +1,21 @@
 from peewee import *
-
-
-class CreateDatabase:
-    @staticmethod
-    def create_db_object():
-        recognize_db = open("connect_str.txt", "r")
-        login = recognize_db.readlines()
-        recognize_db.close()
-        db = PostgresqlDatabase(login[0], user=login[0])
-        return db
+from connect_database import ConnectDatabase
 
 
 class BaseModel(Model):
+    """A base model that will use our Postgresql database"""
     class Meta:
-        database = CreateDatabase.create_db_object()
+        database = ConnectDatabase().db
 
 
-class Entries(BaseModel):
-    story_title = CharField()
-    user_story = CharField()
-    acceptance_criteria = CharField()
-    business_value = IntegerField()
-    estimation = FloatField()
+class UserStory(BaseModel):
+    title = CharField()
+    story = TextField()
+    criteria = TextField()
+    business_value = IntegerField(constraints=[Check('business_value >= 100 and business_value <= 1500')])
+    estimation = FloatField(constraints=[Check('estimation >= 0.5 and estimation <= 40')])
     status = CharField()
 
-    
+
+class Status(BaseModel):
+    status_options = CharField()

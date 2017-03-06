@@ -1,75 +1,91 @@
+
+from flask import Flask, request, redirect, url_for, render_template
 from models import *
-from flask import Flask, request, g, redirect, url_for, \
-    render_template, flash
+
+db = ConnectDatabase().db
 
 app = Flask(__name__)
-app.config.from_object(__name__)
 
 
 def init_db():
-    db = CreateDatabase.create_db_object()
     db.connect()
-    db.create_tables([Entries], safe=True)
+    if UserStory.table_exists():
+        UserStory.drop_table(cascade=True)
+        db.create_table(UserStory, safe=True)
+    else:
+        db.create_table(UserStory, safe=True)
+
+    if Status.table_exists():
+        Status.drop_table(cascade=True)
+        db.create_table(Status, safe=True)
+        update_status_table()
+    else:
+        db.create_table(Status, safe=True)
+        update_status_table()
 
 
-@app.teardown_appcontext
-def close_db(error):
-    if hasattr(g, 'postgre_db'):
-        g.postgre_db.close()
+def update_status_table():
+    status_list = ['Planning', 'To Do', 'In Progress', 'Review', 'Done']
+    for status in status_list:
+        new_status = Status.create(status_options=status)
+        new_status.save()
 
 
 @app.route('/')
-def show_entries():
-    entries_query = Entries.select().order_by(Entries.id)
-    return render_template('list.html', user_entries=entries_query)
+@app.route('/list', methods=["GET"])
+def show_stories():
+    stories = UserStory.select().order_by(UserStory.id)
+    return render_template('list.html', stories=stories)
 
 
-@app.route('/story')
-def empty_user_story():
-    return render_template('form.html', story=None)
+@app.route('/story/', methods=["GET"])
+def show_form():
+    status_options = Status.select()
+    return render_template('form.html', user_story=0, status_options=status_options, show_only=True,
+                           header='Add new Story', submit_button='Create')
 
 
-@app.route('/add_user_story', methods=['POST'])
-def add_user_story():
-    new_user_story = Entries.create(story_title=request.form["story-title"],
-                                    user_story=request.form["user-story"],
-                                    acceptance_criteria=request.form["acceptance-criteria"],
-                                    business_value=request.form["business-value"],
-                                    estimation=request.form["estimation"],
-                                    status=request.form["status"])
-    new_user_story.save()
-    return redirect('/')
-
-@app.route('/delete', methods=['POST'])
-def delete_user_story():
-    story_id = request.form["id_for_delete"]
-    selected_story = Entries.get(Entries.id == story_id)
-    selected_story.delete_instance()
-    return redirect('/')
+@app.route('/story/', methods=["POST"])
+def add_new_story():
+    new_story = UserStory.create(title=request.form['story_title'],
+                                 story=request.form['user_story'],
+                                 criteria=request.form['acceptance_criteria'],
+                                 business_value=request.form['business_value'],
+                                 estimation=request.form['estimation'],
+                                 status=request.form['status'])
+    new_story.save()
+    return redirect(url_for('show_stories'))
 
 
-
-@app.route('/story/<story_id>', methods=['POST'])
-def get_user_story(story_id):
-    story_id = request.form["id_for_update"]
-    selected_story = Entries.get(Entries.id == story_id)
-    return render_template('form.html', story=selected_story)
-
-
-@app.route('/update', methods=['POST'])
-def update_user_story():
-    story_for_update = Entries.update(title=request.form["story-title"],
-                                        story=request.form["user-story"],
-                                        criteria=request.form["acceptance-criteria"],
-                                        value=request.form["business-value"],
-                                        estimation=request.form["estimation"],
-                                        status=request.form["status"]).where(Entries.id == request.form["id"])
-    story_for_update.execute()
-    return redirect('/')
+@app.route('/story/<story_id>', methods=["GET"])
+def show_edit_story(story_id):
+    story = UserStory.get(UserStory.id == story_id)
+    status_options = Status.select()
+    chosen_object = UserStory.get(UserStory.id == story_id)
+    return render_template('form.html', user_story=story, status_options=status_options,
+                           chosen_status=chosen_object.status, header='Edit Story', submit_button='Update')
 
 
+@app.route('/story/<story_id>', methods=["POST"])
+def edit_story(story_id):
+    editing_story = UserStory.update(title=request.form['story_title'],
+                                 story=request.form['user_story'],
+                                 criteria=request.form['acceptance_criteria'],
+                                 business_value=request.form['business_value'],
+                                 estimation=request.form['estimation'],
+                                 status=request.form['status']).where(UserStory.id == int(story_id))
+    editing_story.execute()
+    return redirect(url_for('show_stories'))
 
 
-if __name__ == "__main__":
+@app.route('/delete/<story_id>', methods=["GET"])
+def delete_story(story_id):
+    story = UserStory.get(UserStory.id == story_id)
+    story.delete_instance()
+    story.save()
+    return redirect(url_for('show_stories'))
+
+
+if __name__ == '__main__':
     init_db()
-    app.run()
+    app.run(debug=True)
